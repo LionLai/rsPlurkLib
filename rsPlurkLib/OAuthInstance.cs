@@ -172,6 +172,16 @@ namespace rsPlurkLib
         private async Task<string> CreateRequest(string uri, Dictionary<string, string> param)
         {
             var webClient = new HttpClient();
+            // Generate boilerplate parameters
+            param.Add("oauth_consumer_key", cAppKey);
+            param.Add("oauth_nonce", lastNonce = GetNonce()); // Must be unique
+            param.Add("oauth_timestamp", lastTimestamp = GetTimestamp());
+            param.Add("oauth_version", "1.0");
+
+            // Create signature
+            param.Add("oauth_signature_method", "HMAC-SHA1");
+            string sig = GetSignature("POST", uri, param);
+            param.Add("oauth_signature", sig);
 
             var form = GetMultipartFormDataContent(param);
             var response = await webClient.PostAsync(uri, form);
