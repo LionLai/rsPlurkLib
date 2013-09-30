@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace RenRen.Plurk
+namespace rsPlurkLib
 {
     /// <summary>
     /// Defines methods to perform basic 3-step OAuth authentication process.

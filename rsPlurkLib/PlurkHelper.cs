@@ -3,8 +3,9 @@ using System.Collections.Specialized;
 using System.Text;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
-namespace RenRen.Plurk
+namespace rsPlurkLib
 {
     /// <summary>
     /// Provides functionalities of interacting with Plurk.
@@ -36,28 +37,28 @@ namespace RenRen.Plurk
 
         #region "Timeline/"
 
-        public Entities.GetPlurkResponse GetPlurk(long plurk_id)
+        public async Task<Entities.GetPlurkResponse> GetPlurk(long plurk_id)
         {
-            NameValueCollection nvc = new NameValueCollection();
+            Dictionary<string, string> nvc = new Dictionary<string, string>();
             nvc.Add("plurk_id", plurk_id.ToString());
 
-            string req = instance.SendRequest("Timeline/getPlurk", nvc);
+            string req = await instance.SendRequest("Timeline/getPlurk", nvc);
             return CreateEntity<Entities.GetPlurkResponse>(req);
         }
 
-        public Entities.GetPlurksResponse GetUnreadPlurks()
+        public async Task<Entities.GetPlurksResponse> GetUnreadPlurks()
         {
-            NameValueCollection nvc = new NameValueCollection();
+            Dictionary<string, string> nvc = new Dictionary<string, string>();
             nvc.Add("limit", "200");
 
-            string req = instance.SendRequest("Timeline/getUnreadPlurks", nvc);
+            string req = await instance.SendRequest("Timeline/getUnreadPlurks", nvc);
             return CreateEntity<Entities.GetPlurksResponse>(req);
         }
 
-        public Entities.GetPlurksResponse GetPublicPlurks(int userId, DateTime offset, 
+        public async Task<Entities.GetPlurksResponse> GetPublicPlurks(int userId, DateTime offset, 
                                                     PlurkType type = PlurkType.All, int limit = 20)
         {
-            NameValueCollection nvc = new NameValueCollection();
+            Dictionary<string, string> nvc = new Dictionary<string, string>();
             nvc.Add("user_id", userId.ToString());
             nvc.Add("limit", limit.ToString());
             if (offset <= DateTime.Now)
@@ -74,22 +75,22 @@ namespace RenRen.Plurk
                     nvc.Add("filter", "only_favorite"); break;
             }
 
-            string req = instance.SendRequest("Timeline/getPublicPlurks", nvc);
+            string req = await instance.SendRequest("Timeline/getPublicPlurks", nvc);
             return CreateEntity<Entities.GetPlurksResponse>(req);
         }
 
-        public void AddPlurk(string qualifier, string message)
+        public async void AddPlurk(string qualifier, string message)
         {
-            NameValueCollection nvc = new NameValueCollection();
+            Dictionary<string, string> nvc = new Dictionary<string, string>();
             nvc.Add("qualifier", qualifier);
             nvc.Add("content", message);
 
-            string req = instance.SendRequest("Timeline/plurkAdd", nvc);
+            string req = await instance.SendRequest("Timeline/plurkAdd", nvc);
         }
 
-        public void MutePlurks(long[] plurk_ids)
+        public async void MutePlurks(long[] plurk_ids)
         {
-            NameValueCollection nvc = new NameValueCollection();
+            Dictionary<string, string> nvc = new Dictionary<string, string>();
 
             StringBuilder sb = new StringBuilder();
             string prefix = "[";
@@ -98,29 +99,29 @@ namespace RenRen.Plurk
             sb.Append("]");
             nvc.Add("ids", sb.ToString());
 
-            string req = instance.SendRequest("Timeline/mutePlurks", nvc);
+            string req = await instance.SendRequest("Timeline/mutePlurks", nvc);
         }
 
         #endregion
 
         #region "Responses/"
 
-        public void AddResponse(long plurk_id, string qualifier, string message)
+        public async void AddResponse(long plurk_id, string qualifier, string message)
         {
-            NameValueCollection nvc = new NameValueCollection();
+            Dictionary<string, string> nvc = new Dictionary<string, string>();
             nvc.Add("qualifier", qualifier);
             nvc.Add("content", message);
             nvc.Add("plurk_id", plurk_id.ToString());
 
-            string req = instance.SendRequest("Responses/responseAdd", nvc);
+            string req = await instance.SendRequest("Responses/responseAdd", nvc);
         }
 
-        public Entities.GetResponseResponse GetResponses(long plurk_id)
+        public async Task<Entities.GetResponseResponse> GetResponses(long plurk_id)
         {
-            NameValueCollection nvc = new NameValueCollection();
+            Dictionary<string, string> nvc = new Dictionary<string, string>();
             nvc.Add("plurk_id", plurk_id.ToString());
 
-            string req = instance.SendRequest("Responses/get", nvc);
+            string req = await instance.SendRequest("Responses/get", nvc);
             return CreateEntity<Entities.GetResponseResponse>(req);
         }
 
@@ -128,39 +129,40 @@ namespace RenRen.Plurk
 
         #region "FriendsFans/"
 
-        public IEnumerator<Entities.User> EnumerateFriends(int userId)
+        public async Task<List<Entities.User>> Friends(int userId)
         {
             int offset = 0;
+            List<Entities.User> result = new List<Entities.User>();
             do
             {
-                NameValueCollection nvc = new NameValueCollection();
+                Dictionary<string, string> nvc = new Dictionary<string, string>();
                 nvc.Add("user_id", userId.ToString());
                 nvc.Add("limit", "25");
                 if (offset > 0)
                     nvc.Add("offset", offset.ToString());
 
-                string req = instance.SendRequest("FriendsFans/getFriendsByOffset", nvc);
-                Entities.User[] users = new Entities.User[] {};
+                string req = await instance.SendRequest("FriendsFans/getFriendsByOffset", nvc);
+                
+                var users = CreateEntity<List<Entities.User>>(req);
+                offset += users.Count;
+                if (users.Count <= 0) break;
 
-                users = CreateEntity<Entities.User[]>(req);
-                offset += users.Length;
-                if (users.Length <= 0) break;
-
-                foreach (Entities.User u in users)
-                    yield return u;
+                result.AddRange(users);
 
             } while (offset > 0);
+
+            return result;
         }
 
         #endregion
 
         #region "Private Functions"
 
-        private string SendAPIRequest(string uri, NameValueCollection param)
+        private async Task<string> SendAPIRequest(string uri, Dictionary<string, string> param)
         {
             try
             {
-                return instance.SendRequest(uri, param);
+                return await instance.SendRequest(uri, param);
             }
             catch (OAuthRequestException ex)
             {

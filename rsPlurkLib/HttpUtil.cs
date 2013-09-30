@@ -2,8 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Collections.Specialized;
+using Newtonsoft.Json;
 
-namespace RenRen.Plurk
+namespace rsPlurkLib
 {
     /// <summary>
     /// Contains helper HTTP methods not available in System.Net namespace.
@@ -16,9 +17,9 @@ namespace RenRen.Plurk
         /// Parse an encoded query string using UTF8 encoding.
         /// </summary>
         /// <param name="s">The query string to parse.</param>
-        public static NameValueCollection ParseQueryString(String s)
+        public static T ParseQueryString<T>(String s)
         {
-            return ParseQueryString(s, true, Encoding.UTF8);
+            return ParseQueryString<T>(s, true, Encoding.UTF8);
         }
 
         /// <summary>
@@ -27,50 +28,9 @@ namespace RenRen.Plurk
         /// <param name="s">The query string to parse.</param>
         /// <param name="urlencoded">Whether query string keys and values are URL encoded.</param>
         /// <param name="encoding">The encoding to use.</param>
-        public static NameValueCollection ParseQueryString(String s, bool urlencoded, Encoding encoding)
+        public static T ParseQueryString<T>(String s, bool urlencoded, Encoding encoding)
         {
-            NameValueCollection result = new NameValueCollection();
-            int l = (s != null) ? s.Length : 0;
-            int i = 0;
-
-            while (i < l) {
-                int si = i;     // Next '&'
-                int ti = -1;    // Next '='
-
-                while (i < l)
-                {
-                    char cur = s[i];
-                    if (cur == '=') {
-                        if (ti < 0)
-                            ti = i;
-                    } else
-                        if (cur == '&') break;
-
-                    i++;
-                }
-
-                string name = null, value = null;
-
-                if (ti >= 0) {
-                    name = s.Substring(si, ti - si);
-                    value = s.Substring(ti + 1, i - ti - 1);
-                } else {
-                    value = s.Substring(si, i - si);
-                }
-
-                if (urlencoded) 
-                    result.Add(UrlDecode(name, encoding), UrlDecode(value, encoding));
-                else
-                    result.Add(name, value);
-
-                // trailing '&'
-
-                if (i == l - 1 && s[i] == '&')
-                    result.Add(null, String.Empty);
-
-                i++;
-            }
-
+            T result = JsonConvert.DeserializeObject<T>(s);
             return result;
         }
 

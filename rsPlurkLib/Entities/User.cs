@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace RenRen.Plurk.Entities
+namespace rsPlurkLib.Entities
 {
     /// <summary>
     /// Contains information of a Plurk user.

@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Runtime.Serialization;
 
-namespace RenRen.Plurk
+namespace rsPlurkLib
 {
     /// <summary>Occurs when Plurk threw an error during a request.</summary>
-    [Serializable]
-    public class PlurkException : ApplicationException
+    public class PlurkException : Exception
     {
         public PlurkException()
             : base()
@@ -25,7 +25,6 @@ namespace RenRen.Plurk
     }
 
     /// <summary>Occurs when the specified Plurk was not found during a request.</summary>
-    [Serializable]
     public class PlurkNotFoundException : PlurkException
     {
         public PlurkNotFoundException()
@@ -46,7 +45,6 @@ namespace RenRen.Plurk
 
 
     /// <summary>Occurs when the current user has no permission to perform the specified request.</summary>
-    [Serializable]
     public class PlurkPermissionException : PlurkException
     {
         public PlurkPermissionException()
@@ -67,7 +65,6 @@ namespace RenRen.Plurk
 
 
     /// <summary>Occurs when the a request was rejected by plurk due to anti-flood mechanism.</summary>
-    [Serializable]
     public class PlurkFloodException : PlurkException
     {
         public PlurkFloodException()

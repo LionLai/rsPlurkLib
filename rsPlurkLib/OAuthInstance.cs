@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Text;
 using System.IO;
 using System.Net;
 using System.Security.Cryptography;
 using System.Collections.Specialized;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
+using System.Net.Http;
 
-namespace RenRen.Plurk
+namespace rsPlurkLib
 {
     /// <summary>
     /// Provides OAuth authentication service for rsPlurk. This class cannot be inherited.
@@ -42,25 +45,19 @@ namespace RenRen.Plurk
         /// Retrieves a request token from Plurk and stores it in the current OAuthInstance.
         /// </summary>
         /// <exception cref="WebException">Connection problems occured.</exception>
-        public void GetRequestToken()
+        public async void GetRequestToken()
         {
-            NameValueCollection param = new NameValueCollection()
+            Dictionary<string, string> param = new Dictionary<string, string>()
                 { { "oauth_callback", "oob"} }; // Plurk seems to omit this parameter
             
             try
             {
-                HttpWebRequest request = CreateRequest(cReqTokenUrl, param);
-                HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-
-                // Failing authorization (401) will generate a WebException instead of continue
-                using (StreamReader sr = new StreamReader(response.GetResponseStream()))
-                {
-                    string responseText = sr.ReadToEnd();
-                    NameValueCollection data = HttpUtility.ParseQueryString(responseText);
-                    token.Content = data["oauth_token"];
-                    token.Secret = data["oauth_token_secret"];
-                    token.State = OAuthTokenType.Temporary;
-                }
+                var responseText = await CreateRequest(cReqTokenUrl, param);
+                Dictionary<string, string> data = HttpUtility.ParseQueryString<Dictionary<string, string>>(responseText);
+                token.Content = data["oauth_token"];
+                token.Secret = data["oauth_token_secret"];
+                token.State = OAuthTokenType.Temporary;
+                
             }
             catch (WebException ex)
             {
@@ -90,25 +87,19 @@ namespace RenRen.Plurk
         /// <exception cref="UnauthorizedAccessException">Occurs when the token has expired 
         /// or the verifier specified is not valid.</exception>
         /// <exception cref="WebException">Connection problems occured.</exception>
-        public void GetAccessToken(string verifier)
+        public async void GetAccessToken(string verifier)
         {
             EnsureTokenState();
-            NameValueCollection param = new NameValueCollection()
+            Dictionary<string, string> param = new Dictionary<string, string>()
                 { { "oauth_token", token.Content}, {"oauth_verifier", verifier} };
             
             try
             {
-                HttpWebRequest request = CreateRequest(cExchangeUrl, param);
-                HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-
-                using (StreamReader sr = new StreamReader(response.GetResponseStream()))
-                {
-                    string responseText = sr.ReadToEnd();
-                    NameValueCollection data = HttpUtility.ParseQueryString(responseText);
-                    token.Content = data["oauth_token"];
-                    token.Secret = data["oauth_token_secret"];
-                    token.State = OAuthTokenType.Permanent;
-                }
+                var responseText = await CreateRequest(cExchangeUrl, param);
+                Dictionary<string, string> data = HttpUtility.ParseQueryString<Dictionary<string, string>>(responseText);
+                token.Content = data["oauth_token"];
+                token.Secret = data["oauth_token_secret"];
+                token.State = OAuthTokenType.Permanent;
             }
             catch (WebException ex)
             {
@@ -128,10 +119,10 @@ namespace RenRen.Plurk
         /// <exception cref="UnauthorizedAccessException">Occurs when the token has expired 
         /// or the verifier specified is not valid.</exception>
         /// <exception cref="WebException">Connection problems occured.</exception>
-        public string SendRequest(string apiPath, NameValueCollection args)
+        public async Task<string> SendRequest(string apiPath, Dictionary<string, string> args)
         {
             EnsureTokenState();
-            NameValueCollection param = new NameValueCollection() { { "oauth_token", token.Content } };
+            Dictionary<string, string> param = new Dictionary<string, string>() { { "oauth_token", token.Content } };
 
             if (args != null)
                 foreach (string key in args.Keys)
@@ -139,10 +130,7 @@ namespace RenRen.Plurk
 
             try
             {
-                HttpWebRequest request = CreateRequest(cApiBaseUrl + apiPath, param);
-                HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-                using (StreamReader sr = new StreamReader(response.GetResponseStream()))
-                    return sr.ReadToEnd();
+                return await CreateRequest(cApiBaseUrl + apiPath, param);
             }
             catch (WebException ex)
             {
@@ -181,46 +169,16 @@ namespace RenRen.Plurk
         /// <param name="uri">The request target URI.</param>
         /// <param name="param">The OAuth parameters to use.</param>
         /// <returns>The created HttpWebRequest.</returns>
-        private HttpWebRequest CreateRequest(string uri, NameValueCollection param)
+        private async Task<string> CreateRequest(string uri, Dictionary<string, string> param)
         {
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(uri);
-            request.Method = "POST";
-            request.ContentType = "application/x-www-form-urlencoded";
+            var webClient = new HttpClient();
 
-            // Generate boilerplate parameters
-            param.Add("oauth_consumer_key", cAppKey);
-            param.Add("oauth_nonce", lastNonce = GetNonce()); // Must be unique
-            param.Add("oauth_timestamp", lastTimestamp = GetTimestamp());
-            param.Add("oauth_version", "1.0");
+            var form = GetMultipartFormDataContent(param);
+            var response = await webClient.PostAsync(uri, form);
 
-            // Create signature
-            param.Add("oauth_signature_method", "HMAC-SHA1");
-            string sig = GetSignature(request.Method, uri, param);
-            param.Add("oauth_signature", sig);
-
-            // Build up header
-            StringBuilder sb = new StringBuilder();
-            sb.Append("OAuth realm=\"\"");
-            foreach (string key in param.AllKeys)
-                if (key.StartsWith("oauth_")) // Possible additional parameters
-                    sb.Append(", ").Append(key).Append("=\"").Append(UrlEncode(param[key])).Append("\"");
-
-            request.Headers.Add("Authorization", sb.ToString());
-
-            // Build up POST body
-            StreamWriter sw = new StreamWriter(request.GetRequestStream(), Encoding.ASCII);
-            sb = new StringBuilder();
-            string prefix = "";
-            foreach (string key in param.AllKeys)
-                if (!key.StartsWith("oauth_")) {
-                    sb.Append(prefix).Append(key).Append("=").Append(UrlEncode(param[key]));
-                    prefix = "&";
-                }
-
-            sw.Write(sb.ToString());
-            sw.Flush();
-            sw.Close();
-            return request;
+            response.EnsureSuccessStatusCode();
+ 
+            return await response.Content.ReadAsStringAsync();
         }
 
         /// <summary>
@@ -230,14 +188,14 @@ namespace RenRen.Plurk
         /// <param name="uri">Normalized service URI.</param>
         /// <param name="param">Parameters used in the request.</param>
         /// <returns></returns>
-        private string GetSignature(string method, string uri, NameValueCollection param)
+        private string GetSignature(string method, string uri, Dictionary<string, string> param)
         {
             // Build up base string
             StringBuilder sb = new StringBuilder();
             sb.Append(method).Append('&').Append(UrlEncode(uri)).Append('&');
 
             // Sort the params
-            List<string> keys = new List<string>(param.AllKeys);
+            List<string> keys = new List<string>(param.Keys);
             keys.Sort(StringComparer.InvariantCulture);
 
             string prefix = "";
@@ -250,7 +208,7 @@ namespace RenRen.Plurk
             string source = sb.ToString();
             string key = UrlEncode(cAppSecret) + "&" + UrlEncode(token.Secret);
 
-            HMACSHA1 hashProvider = new HMACSHA1(Encoding.UTF8.GetBytes(key), true);
+            HMACSHA1 hashProvider = new HMACSHA1(Encoding.UTF8.GetBytes(key));
             byte[] result = hashProvider.ComputeHash(Encoding.UTF8.GetBytes(source));
             
             return Convert.ToBase64String(result);
@@ -308,6 +266,25 @@ namespace RenRen.Plurk
                     finally { resp.Close(); }
         }
 
+        private MultipartFormDataContent GetMultipartFormDataContent(Dictionary<string, string> param)
+        {
+            MultipartFormDataContent result = new MultipartFormDataContent();
+            
+            // Build up header
+            StringBuilder sb = new StringBuilder();
+            sb.Append("OAuth realm=\"\"");
+            foreach (string key in param.Keys)
+            {
+                result.Add(new StringContent(param[key]), key);
+                if (key.StartsWith("oauth_")) // Possible additional parameters
+                    sb.Append(", ").Append(key).Append("=\"").Append(UrlEncode(param[key])).Append("\"");
+            }
+            result.Headers.Add("Authorization", sb.ToString());
+            result.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+
+            return result;
+        }
+
         #endregion
 
         #region "Properties"
@@ -330,7 +307,6 @@ namespace RenRen.Plurk
     /// <summary>
     /// Stores a OAuth token. This class cannot be inherited.
     /// </summary>
-    [Serializable]
     public sealed class OAuthToken : IOAuthToken
     {
         #region "Constructor"

@@ -2,11 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace RenRen.Plurk
+namespace rsPlurkLib
 {
     /// <summary>Occurs when an OAuth request encounters an error.</summary>
-    [Serializable]
-    public class OAuthException : ApplicationException
+    public class OAuthException : Exception
     {
         public OAuthException()
             : base("An error occured during OAuth authentication")
@@ -25,7 +24,6 @@ namespace RenRen.Plurk
     }
 
     /// <summary>Occurs when an OAuth request encounters authorization error (401).</summary>
-    [Serializable]
     public class OAuthAuthorizationException : OAuthException
     {
         public OAuthAuthorizationException()
@@ -46,7 +44,6 @@ namespace RenRen.Plurk
 
     /// <summary>Occurs when an OAuth request was rejected due to 
     /// nonce or timestamp invalidity.</summary>
-    [Serializable]
     public class OAuthNonceException : OAuthException
     {
         public OAuthNonceException()
@@ -73,7 +70,6 @@ namespace RenRen.Plurk
     /// <summary>Occurs when an OAuth request encounters an error. 
     /// This class is thrown only when the server returned further 
     /// information during 400 Bad Request.</summary>
-    [Serializable]
     public class OAuthRequestException : OAuthException
     {
         public OAuthRequestException(string response)

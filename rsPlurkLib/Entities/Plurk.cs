@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 // Contains Plurk and Response. PlurkBase 
-namespace RenRen.Plurk.Entities
+namespace rsPlurkLib.Entities
 {
     /// <summary>
     /// Define common properties shared between plurks and responses.

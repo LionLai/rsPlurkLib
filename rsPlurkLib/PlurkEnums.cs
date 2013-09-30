@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace RenRen.Plurk
+namespace rsPlurkLib
 {
     /// <summary>
     /// List all plurk type filters Plurk supports.
